@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DVC Member Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dvc: {
+              navy: '#0c2340',
+              blue: '#0055b8',
+              gold: '#cba052',
+              lightgold: '#fdf6e7',
+              dark: '#081627',
+              card: '#ffffff',
+              carddark: '#132238'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+    .font-cinzel { font-family: 'Cinzel', serif; }
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col relative antialiased selection:bg-dvc-gold selection:text-dvc-navy">
+
+  <!-- Fullscreen Fixed Background Image (Disney's Hollywood Studios - Sunset Blvd) -->
+  <div class="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat bg-fixed" 
+       style="background-image: url('/static/background.jpeg');"></div>
+  
+  <!-- Atmospheric Dark Gradient & Frosted Overlay for optimal contrast -->
+  <div class="fixed inset-0 -z-10 bg-slate-950/60 backdrop-blur-[2px] bg-gradient-to-b from-dvc-navy/85 via-slate-900/70 to-dvc-dark/90"></div>
+
+  <!-- Top Navigation / Banner -->
+  <header class="bg-dvc-navy/90 backdrop-blur-md text-white shadow-xl sticky top-0 z-50 border-b border-dvc-gold/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-dvc-gold/20 border border-dvc-gold flex items-center justify-center text-dvc-gold text-lg shadow-inner">
+          <i class="fa-solid fa-compass"></i>
+        </div>
+        <div>
+          <h1 class="font-cinzel text-lg sm:text-xl font-bold tracking-wide text-white">Disney Vacation Club</h1>
+          <p class="text-xs text-slate-300 font-medium tracking-wider uppercase">Member Dashboard</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <span id="sync-badge" class="text-xs text-slate-300 bg-dvc-dark/60 px-3 py-1.5 rounded-full border border-slate-700/60 hidden sm:inline-block">
+          <i class="fa-regular fa-clock mr-1 text-dvc-gold"></i> Last synced: <span id="last-updated-text" class="font-medium">Loading...</span>
+        </span>
+        <button id="refresh-btn" onclick="refreshData()" class="inline-flex items-center space-x-2 bg-dvc-gold hover:bg-yellow-600 text-dvc-navy font-semibold px-4 py-1.5 rounded-lg text-sm shadow-md transition-all active:scale-95">
+          <i id="refresh-icon" class="fa-solid fa-arrows-rotate"></i>
+          <span>Refresh DVC</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-dvc-navy text-white px-5 py-3 rounded-xl shadow-2xl border border-dvc-gold/50 flex items-center space-x-3">
+      <i id="toast-icon" class="fa-solid fa-circle-check text-dvc-gold text-lg"></i>
+      <span id="toast-msg" class="text-sm font-medium">Syncing...</span>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
+
+    <!-- Member Overview Header Card -->
+    <div class="bg-gradient-to-r from-dvc-navy via-[#102a4c] to-[#0c2340] rounded-2xl p-6 text-white shadow-xl border border-slate-700/50 relative overflow-hidden">
+      <div class="absolute -right-10 -bottom-10 opacity-5 text-white text-9xl pointer-events-none">
+        <i class="fa-solid fa-castle"></i>
+      </div>
+      
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div>
+          <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-dvc-gold/20 border border-dvc-gold/40 text-dvc-gold text-xs font-semibold mb-2">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Active DVC Membership</span>
+          </div>
+          <h2 id="member-name" class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Daniel Vickers</h2>
+          <p id="home-resort" class="text-slate-300 text-sm mt-1 flex items-center gap-1.5 font-medium">
+            <i class="fa-solid fa-hotel text-dvc-gold"></i>
+            <span>Boulder Ridge Villas at Disney's Wilderness Lodge</span>
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center md:text-right border-t md:border-t-0 md:border-l border-slate-700/80 pt-4 md:pt-0 md:pl-8">
+          <div>
+            <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Member ID</div>
+            <div id="member-id" class="text-base sm:text-lg font-mono font-bold text-white mt-0.5">506080513403</div>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Use Year</div>
+            <div id="use-year-month" class="text-base sm:text-lg font-bold text-dvc-gold mt-0.5">March</div>
+          </div>
+          <div class="col-span-2 sm:col-span-1">
+            <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Banking Window</div>
+            <div id="banking-deadline" class="text-base sm:text-lg font-bold text-yellow-300 mt-0.5">Oct 31, 2026</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Available Now -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available to Book</span>
+          <div class="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-ticket"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-avail" class="text-3xl font-extrabold text-slate-900">0</span>
+          <span class="text-xs font-medium text-slate-500">Vacation Points</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Ready for immediate reservations</p>
+      </div>
+
+      <!-- Annual Allotment -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Annual Contract</span>
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-file-contract"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-allotment" class="text-3xl font-extrabold text-slate-900">150</span>
+          <span class="text-xs font-medium text-slate-500">Points / Year</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Boulder Ridge (#5013244)</p>
+      </div>
+
+      <!-- Banked Points -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Banked to 2027</span>
+          <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-vault"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-banked" class="text-3xl font-extrabold text-purple-700">22</span>
+          <span class="text-xs font-medium text-purple-600">Points Banked</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Carried forward from 2026</p>
+      </div>
+
+      <!-- Next Year Balance -->
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">2027 Starting Balance</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-dvc-gold flex items-center justify-center text-sm">
+            <i class="fa-solid fa-calendar-check"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline space-x-2">
+          <span id="stat-next-balance" class="text-3xl font-extrabold text-slate-900">172</span>
+          <span class="text-xs font-medium text-slate-500">Points Total</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">150 Allotted + 22 Banked</p>
+      </div>
+    </div>
+
+    <!-- Points Breakdown by Use Year -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-chart-simple text-dvc-blue"></i>
+            <span>Vacation Points Breakdown by Use Year</span>
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Points allotted, banked, borrowed, and balances per contractual year</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-600 text-xs uppercase font-semibold border-b border-slate-200">
+            <tr>
+              <th class="px-6 py-3.5">Use Year</th>
+              <th class="px-6 py-3.5">Resort / Contract</th>
+              <th class="px-6 py-3.5 text-right">Annual Allotment</th>
+              <th class="px-6 py-3.5 text-right">Banked In</th>
+              <th class="px-6 py-3.5 text-right">Banked Out</th>
+              <th class="px-6 py-3.5 text-right">Borrowed</th>
+              <th class="px-6 py-3.5 text-right">Total Balance</th>
+            </tr>
+          </thead>
+          <tbody id="points-table-body" class="divide-y divide-slate-100">
+            <!-- Populated dynamically via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Two-Column Layout: Booking Window Calculator & Vacation Plans -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Interactive Booking Window Calculator (7 Cols) -->
+      <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+        <div>
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-regular fa-calendar-days text-dvc-blue"></i>
+              <span>Booking Window Calculator</span>
+            </h3>
+            <span class="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-semibold">Official Rules</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Calculate when online booking opens (8:00 AM ET) for future Disney vacations</p>
+        </div>
+
+        <!-- Date Picker Input -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <label for="trip-datepicker" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+            Select Target Vacation Check-in Date:
+          </label>
+          <div class="flex gap-3">
+            <input 
+              type="date" 
+              id="trip-datepicker" 
+              class="flex-1 bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-dvc-blue focus:outline-none"
+            />
+            <button onclick="calculateTripWindows()" class="bg-dvc-navy hover:bg-dvc-dark text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition active:scale-95">
+              Calculate
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Calculation Results -->
+        <div id="calc-results-box" class="space-y-4">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Today's Booking Horizons Box -->
+        <div class="border-t border-slate-200 pt-5">
+          <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+            Today's Active Booking Horizons (<span id="today-label"></span>)
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="p-3.5 bg-blue-50/50 rounded-xl border border-blue-100">
+              <span class="text-xs text-blue-700 font-semibold block">11-Month Window (Home Resort)</span>
+              <span id="horizon-11m" class="text-sm font-bold text-slate-900 block mt-1">Loading...</span>
+              <span class="text-xs text-slate-500 mt-0.5 block">Farthest check-in bookable today</span>
+            </div>
+            <div class="p-3.5 bg-amber-50/50 rounded-xl border border-amber-100">
+              <span class="text-xs text-amber-800 font-semibold block">7-Month Window (Other DVC Resorts)</span>
+              <span id="horizon-7m" class="text-sm font-bold text-slate-900 block mt-1">Loading...</span>
+              <span class="text-xs text-slate-500 mt-0.5 block">Farthest check-in bookable today</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vacation Plans & Reservations (5 Cols) -->
+      <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-suitcase-rolling text-dvc-blue"></i>
+              <span>My Vacation Plans</span>
+            </h3>
+            <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">Reservations</span>
+          </div>
+
+          <!-- Tabs -->
+          <div class="flex border-b border-slate-200 mt-4">
+            <button id="tab-upcoming" onclick="switchTripTab('upcoming')" class="pb-2.5 px-4 text-xs font-semibold border-b-2 border-dvc-blue text-dvc-blue">
+              Upcoming Trips
+            </button>
+            <button id="tab-past" onclick="switchTripTab('past')" class="pb-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+              Past 12 Months
+            </button>
+          </div>
+
+          <!-- Trip List Containers -->
+          <div id="trip-list" class="mt-5 space-y-3">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 mt-6 text-xs text-slate-500 flex items-center gap-2">
+          <i class="fa-solid fa-circle-info text-dvc-blue"></i>
+          <span>Reservations sync directly with your official Disney Vacation Club account.</span>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400">
+    <p>DVC Local Automation Dashboard &bull; Running locally on <span class="font-mono text-slate-600">http://localhost:5050</span></p>
+    <p class="mt-1">Disney Vacation Club is a registered trademark of Disney Enterprises, Inc.</p>
+  </footer>
+
+  <!-- Script Logic -->
+  <script>
+    let dvcData = null;
+    let activeTab = 'upcoming';
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/data');
+        dvcData = await res.json();
+        renderDashboard(dvcData);
+      } catch (err) {
+        console.error("Failed to load DVC data:", err);
+      }
+    }
+
+    function renderDashboard(data) {
+      if (!data) return;
+
+      // Header Info
+      document.getElementById('last-updated-text').innerText = data.last_updated || 'Just now';
+      document.getElementById('member-name').innerText = data.member?.name || 'DVC Member';
+      document.getElementById('home-resort').querySelector('span').innerText = data.member?.home_resort || 'Home Resort';
+      document.getElementById('member-id').innerText = data.member?.membership_id || 'N/A';
+      document.getElementById('use-year-month').innerText = data.member?.use_year_month || 'N/A';
+      document.getElementById('banking-deadline').innerText = data.member?.banking_deadline || 'N/A';
+
+      // Stats
+      document.getElementById('stat-avail').innerText = data.member?.available_to_book ?? 0;
+      
+      const currentYearObj = (data.points_by_year || []).find(y => y.use_year === '2026') || {};
+      const nextYearObj = (data.points_by_year || []).find(y => y.use_year === '2027') || {};
+      
+      document.getElementById('stat-allotment').innerText = currentYearObj.annual_allotment || 150;
+      document.getElementById('stat-banked').innerText = currentYearObj.banked_out || 22;
+      document.getElementById('stat-next-balance').innerText = nextYearObj.points_balance || 172;
+
+      // Points Table
+      const tbody = document.getElementById('points-table-body');
+      tbody.innerHTML = '';
+
+      (data.points_by_year || []).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition";
+
+        const isCurrent = row.use_year === '2026';
+        const yearBadge = isCurrent 
+          ? `<span class="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded text-xs">Current</span>`
+          : '';
+
+        const bankedInDisplay = row.banked_in > 0 
+          ? `<span class="text-blue-600 font-semibold">+${row.banked_in}</span> <span class="text-xs text-slate-400">(${row.banked_in_from_year})</span>` 
+          : '0';
+
+        const bankedOutDisplay = row.banked_out > 0 
+          ? `<span class="text-purple-600 font-semibold">-${row.banked_out}</span> <span class="text-xs text-slate-400">(${row.banked_out_to_year})</span>` 
+          : '0';
+
+        tr.innerHTML = `
+          <td class="px-6 py-4 font-bold text-slate-900 flex items-center gap-2">
+            ${row.use_year} ${yearBadge}
+          </td>
+          <td class="px-6 py-4 text-slate-600 font-medium">${row.resort_name} <span class="text-xs text-slate-400">(#${row.contract_id})</span></td>
+          <td class="px-6 py-4 text-right font-mono text-slate-600">${row.annual_allotment}</td>
+          <td class="px-6 py-4 text-right font-mono">${bankedInDisplay}</td>
+          <td class="px-6 py-4 text-right font-mono">${bankedOutDisplay}</td>
+          <td class="px-6 py-4 text-right font-mono text-slate-500">${row.borrowed_in || 0}</td>
+          <td class="px-6 py-4 text-right font-mono font-bold text-base ${row.points_balance > 0 ? 'text-green-600' : 'text-slate-400'}">
+            ${row.points_balance}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Today's Horizons
+      if (data.today_windows) {
+        document.getElementById('today-label').innerText = data.today_windows.today;
+        document.getElementById('horizon-11m').innerText = data.today_windows.farthest_11m;
+        document.getElementById('horizon-7m').innerText = data.today_windows.farthest_7m;
+      }
+
+      // Default target date for picker (e.g. 1 year from now)
+      const dateInput = document.getElementById('trip-datepicker');
+      if (!dateInput.value) {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() + 1);
+        dateInput.value = d.toISOString().split('T')[0];
+        calculateTripWindows();
+      }
+
+      // Render trips
+      renderTrips();
+    }
+
+    function switchTripTab(tab) {
+      activeTab = tab;
+      const tabUp = document.getElementById('tab-upcoming');
+      const tabPast = document.getElementById('tab-past');
+
+      if (tab === 'upcoming') {
+        tabUp.className = "pb-2.5 px-4 text-xs font-semibold border-b-2 border-dvc-blue text-dvc-blue";
+        tabPast.className = "pb-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700";
+      } else {
+        tabPast.className = "pb-2.5 px-4 text-xs font-semibold border-b-2 border-dvc-blue text-dvc-blue";
+        tabUp.className = "pb-2.5 px-4 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700";
+      }
+      renderTrips();
+    }
+
+    function renderTrips() {
+      const container = document.getElementById('trip-list');
+      container.innerHTML = '';
+
+      const trips = activeTab === 'upcoming' 
+        ? (dvcData?.upcoming_trips || [])
+        : (dvcData?.past_trips || []);
+
+      if (trips.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center">
+            <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl mb-3">
+              <i class="fa-solid fa-umbrella-beach"></i>
+            </div>
+            <p class="text-sm font-semibold text-slate-700">
+              ${activeTab === 'upcoming' ? 'No Upcoming Vacations' : 'No Past Reservations'}
+            </p>
+            <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+              ${activeTab === 'upcoming' ? 'You have no reservations currently booked. Ready to plan your next stay?' : 'No completed reservations found within the last 12 months.'}
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      trips.forEach(t => {
+        const card = document.createElement('div');
+        card.className = "p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition";
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <h4 class="font-bold text-slate-900 text-sm">${t.resort}</h4>
+            <span class="text-xs font-bold text-dvc-blue bg-blue-100 px-2 py-0.5 rounded font-mono">${t.points} pts</span>
+          </div>
+          <p class="text-xs text-slate-600 mt-1 font-medium"><i class="fa-regular fa-calendar mr-1"></i> ${t.check_in} – ${t.check_out}</p>
+          <div class="flex justify-between text-xs text-slate-400 mt-2 pt-2 border-t border-slate-200/60">
+            <span>Room: ${t.room_type}</span>
+            <span>Conf: #${t.confirmation_number}</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function calculateTripWindows() {
+      const dateVal = document.getElementById('trip-datepicker').value;
+      if (!dateVal) return;
+
+      try {
+        const res = await fetch(`/api/windows?date=${dateVal}`);
+        const result = await fetchResults(res);
+        renderCalcResult(result);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function fetchResults(res) {
+      return await res.json();
+    }
+
+    function renderCalcResult(res) {
+      const box = document.getElementById('calc-results-box');
+      if (!res || !res.home_resort_11m) return;
+
+      const home = res.home_resort_11m;
+      const other = res.other_resorts_7m;
+
+      box.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- 11 Month Card -->
+          <div class="p-4 rounded-xl border ${home.is_open ? 'border-green-300 bg-green-50/40' : 'border-slate-200 bg-white'} shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">11-Month Priority</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded ${home.is_open ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-800'}">
+                ${home.is_open ? 'OPEN NOW' : `In ${home.days_until} days`}
+              </span>
+            </div>
+            <div class="text-xs font-semibold text-slate-800">Boulder Ridge (Home Resort)</div>
+            <div class="text-sm font-bold text-slate-900 mt-1">${home.opens_at}</div>
+            <p class="text-xs text-slate-400 mt-1">Priority reservation window</p>
+          </div>
+
+          <!-- 7 Month Card -->
+          <div class="p-4 rounded-xl border ${other.is_open ? 'border-green-300 bg-green-50/40' : 'border-slate-200 bg-white'} shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">7-Month General</span>
+              <span class="text-xs font-bold px-2 py-0.5 rounded ${other.is_open ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-800'}">
+                ${other.is_open ? 'OPEN NOW' : `In ${other.days_until} days`}
+              </span>
+            </div>
+            <div class="text-xs font-semibold text-slate-800">All Other DVC Resorts</div>
+            <div class="text-sm font-bold text-slate-900 mt-1">${other.opens_at}</div>
+            <p class="text-xs text-slate-400 mt-1">General member inventory opens</p>
+          </div>
+        </div>
+      `;
+    }
+
+    async function refreshData() {
+      const btn = document.getElementById('refresh-btn');
+      const icon = document.getElementById('refresh-icon');
+      
+      btn.disabled = true;
+      btn.classList.add('opacity-75', 'cursor-not-allowed');
+      icon.classList.add('fa-spin');
+      showToast('Connecting to Disney Vacation Club & fetching live data...', 'spin');
+
+      try {
+        const res = await fetch('/api/refresh', { method: 'POST' });
+        const freshData = await res.json();
+        dvcData = freshData;
+        renderDashboard(freshData);
+        showToast('✓ Successfully refreshed live DVC points & trips!', 'check');
+      } catch (err) {
+        showToast('Error refreshing data from Disney.', 'error');
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        icon.classList.remove('fa-spin');
+      }
+    }
+
+    function showToast(msg, type = 'check') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.innerText = msg;
+
+      if (type === 'spin') {
+        toastIcon.className = "fa-solid fa-arrows-rotate fa-spin text-dvc-gold text-lg";
+      } else if (type === 'error') {
+        toastIcon.className = "fa-solid fa-circle-exclamation text-red-400 text-lg";
+      } else {
+        toastIcon.className = "fa-solid fa-circle-check text-green-400 text-lg";
+      }
+
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 4000);
+    }
+
+    window.addEventListener('DOMContentLoaded', loadData);
+  </script>
+</body>
+</html>

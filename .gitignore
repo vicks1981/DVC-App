@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Auth & Session Data (DO NOT COMMIT)
+auth_state.json
+data_cache.json
+*.session
+.env
+
+# Logs and Debug Artifacts
+debug_page.html
+screenshot*.png
+*.log
+
+# macOS
+.DS_Store
+

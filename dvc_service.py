@@ -6,7 +6,12 @@ Handles fetching, caching, and calculating points, reservations, and booking win
 """
 
 import os
+import sys
 import json
+import signal
+import fcntl
+import shlex
+import subprocess
 import calendar
 from datetime import datetime, date, time
 from pathlib import Path
@@ -16,6 +21,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 DIR = Path(__file__).parent
 AUTH_STATE_FILE = DIR / "auth_state.json"
 CACHE_FILE = DIR / "data_cache.json"
+WATCHER_STATE_FILE = DIR / "watcher_state.json"
 ET = ZoneInfo("America/New_York")
 
 DVC_POINTS_URL = "https://disneyvacationclub.disney.go.com/home/points/"
@@ -311,3 +317,228 @@ def fetch_live_data():
 
     save_cache_data(result_data)
     return result_data
+
+
+def _is_pid_alive(pid: int) -> bool:
+    """Check if a process with the given PID is currently running."""
+    if not pid or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
+
+
+def _discover_unregistered_watchers(known_pids: set[int]) -> list[dict]:
+    """Fallback: scan running processes for watcher.py instances not yet in watcher_state.json."""
+    discovered = []
+    try:
+        out = subprocess.check_output(["ps", "-eo", "pid,command"], text=True, stderr=subprocess.DEVNULL)
+        for line in out.splitlines():
+            line = line.strip()
+            if "watcher.py" not in line or "grep" in line:
+                continue
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            try:
+                pid = int(parts[0])
+            except ValueError:
+                continue
+            if pid in known_pids or pid == os.getpid():
+                continue
+
+            cmd_str = parts[1]
+            tokens = shlex.split(cmd_str)
+            # Ensure this is actually invoking watcher.py (not dvc.py wrapper which spawns watcher.py)
+            if not any(t.endswith("watcher.py") for t in tokens):
+                continue
+
+            resorts = ["VWL"]
+            room_arg = "studio"
+            check_in = "N/A"
+            check_out = "N/A"
+            interval = 15
+
+            for i, tok in enumerate(tokens):
+                if tok == "--resort" and i + 1 < len(tokens):
+                    resorts = [r.strip().upper() for r in tokens[i + 1].split(",")]
+                elif tok == "--room" and i + 1 < len(tokens):
+                    room_arg = tokens[i + 1]
+                elif tok == "--start" and i + 1 < len(tokens):
+                    check_in = tokens[i + 1]
+                elif tok == "--end" and i + 1 < len(tokens):
+                    check_out = tokens[i + 1]
+                elif tok == "--interval" and i + 1 < len(tokens):
+                    try:
+                        interval = int(tokens[i + 1])
+                    except ValueError:
+                        pass
+
+            room_map = {
+                "studio": "Deluxe Studio",
+                "1-bed": "1-Bedroom",
+                "2-bed": "2-Bedroom",
+                "3-bed": "3-Bedroom"
+            }
+            discovered.append({
+                "id": f"watcher_{pid}",
+                "pid": pid,
+                "resorts": resorts,
+                "resort_names": [RESORT_NAMES.get(c, c) for c in resorts],
+                "room_type": room_map.get(room_arg.lower(), room_arg.title()),
+                "room_arg": room_arg,
+                "check_in": check_in,
+                "check_out": check_out,
+                "interval_minutes": interval,
+                "started_at": "Running in background",
+                "status": "checking",
+                "status_text": "Active background process",
+                "check_count": 1,
+                "last_checked": None,
+                "next_check": None,
+                "latest_results": [],
+                "open_rooms_count": 0
+            })
+    except Exception:
+        pass
+    return discovered
+
+
+def get_active_watchers() -> list[dict]:
+    """Return list of currently running availability watchers, pruning any dead PIDs."""
+    lock_path = DIR / ".watcher_state.lock"
+    active_list = []
+    known_pids = set()
+
+    try:
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            state = {}
+            if WATCHER_STATE_FILE.exists():
+                try:
+                    with open(WATCHER_STATE_FILE, "r") as f:
+                        state = json.load(f)
+                        if not isinstance(state, dict):
+                            state = {}
+                except Exception:
+                    state = {}
+
+            cleaned_state = {}
+            dirty = False
+            for wid, entry in state.items():
+                pid = entry.get("pid")
+                if _is_pid_alive(pid):
+                    cleaned_state[wid] = entry
+                    active_list.append(entry)
+                    known_pids.add(pid)
+                else:
+                    dirty = True
+
+            if dirty:
+                tmp_file = WATCHER_STATE_FILE.with_suffix(".tmp")
+                with open(tmp_file, "w") as f:
+                    json.dump(cleaned_state, f, indent=2)
+                tmp_file.replace(WATCHER_STATE_FILE)
+
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+    except Exception:
+        pass
+
+    # Also include any running watcher.py processes discovered via ps
+    extra = _discover_unregistered_watchers(known_pids)
+    active_list.extend(extra)
+    return active_list
+
+
+def start_watcher(resorts: str, room_type: str, check_in: str, check_out: str, interval: int = 15) -> dict:
+    """Spawn a new background availability watcher process."""
+    if not check_in or not check_out:
+        raise ValueError("Check-in and check-out dates are required.")
+
+    ci_date = datetime.strptime(check_in, "%Y-%m-%d").date()
+    co_date = datetime.strptime(check_out, "%Y-%m-%d").date()
+    if co_date <= ci_date:
+        raise ValueError("Check-out date must be after check-in date.")
+
+    today_et = datetime.now(ET).date()
+    if ci_date < today_et:
+        raise ValueError("Check-in date cannot be in the past.")
+
+    farthest_11m = add_months(today_et, 11)
+    if ci_date > farthest_11m:
+        raise ValueError(
+            f"Check-in date ({check_in}) is beyond the 11-month booking horizon ({farthest_11m.isoformat()})."
+        )
+
+    watcher_script = DIR / "watcher.py"
+    cmd = [
+        sys.executable,
+        str(watcher_script),
+        "--resort", resorts,
+        "--room", room_type,
+        "--start", check_in,
+        "--end", check_out,
+        "--interval", str(max(3, int(interval)))
+    ]
+
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(DIR),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True
+    )
+
+    return {
+        "pid": proc.pid,
+        "id": f"watcher_{proc.pid}",
+        "status": "started"
+    }
+
+
+def stop_watcher(watcher_id: str) -> bool:
+    """Terminate a running watcher by ID (e.g., 'watcher_12345') or PID."""
+    pid = None
+    if watcher_id.startswith("watcher_"):
+        try:
+            pid = int(watcher_id.split("_", 1)[1])
+        except ValueError:
+            pass
+    else:
+        try:
+            pid = int(watcher_id)
+            watcher_id = f"watcher_{pid}"
+        except ValueError:
+            pass
+
+    if pid and _is_pid_alive(pid):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+
+    # Clean up from state file immediately
+    lock_path = DIR / ".watcher_state.lock"
+    try:
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            if WATCHER_STATE_FILE.exists():
+                with open(WATCHER_STATE_FILE, "r") as f:
+                    state = json.load(f)
+                if isinstance(state, dict) and watcher_id in state:
+                    state.pop(watcher_id, None)
+                    tmp_file = WATCHER_STATE_FILE.with_suffix(".tmp")
+                    with open(tmp_file, "w") as f:
+                        json.dump(state, f, indent=2)
+                    tmp_file.replace(WATCHER_STATE_FILE)
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+    except Exception:
+        pass
+
+    return True

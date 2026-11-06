@@ -30,15 +30,44 @@ def get_data():
             data = dvc_service.fetch_live_data()
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+    data["watchers"] = dvc_service.get_active_watchers()
     return jsonify(data)
 
 @app.route("/api/refresh", methods=["POST"])
 def refresh_data():
     try:
         data = dvc_service.fetch_live_data()
+        data["watchers"] = dvc_service.get_active_watchers()
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/watchers", methods=["GET"])
+def list_watchers():
+    return jsonify({"watchers": dvc_service.get_active_watchers()})
+
+@app.route("/api/watchers", methods=["POST"])
+def create_watcher():
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = dvc_service.start_watcher(
+            resorts=payload.get("resorts", "VWL"),
+            room_type=payload.get("room_type", "studio"),
+            check_in=payload.get("check_in", ""),
+            check_out=payload.get("check_out", ""),
+            interval=int(payload.get("interval", 15))
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/api/watchers/<watcher_id>", methods=["DELETE"])
+def delete_watcher(watcher_id):
+    try:
+        dvc_service.stop_watcher(watcher_id)
+        return jsonify({"status": "stopped", "id": watcher_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route("/api/windows")
 def get_windows():

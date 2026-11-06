@@ -6,6 +6,8 @@ __pycache__/
 # Auth & Session Data (DO NOT COMMIT)
 auth_state.json
 data_cache.json
+watcher_state.json
+.watcher_state.lock
 *.session
 .env
 

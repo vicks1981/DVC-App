@@ -54,6 +54,13 @@
       </div>
 
       <div class="flex items-center space-x-3">
+        <a href="#alerts-section" id="header-alerts-badge" class="hidden items-center space-x-2 text-xs font-semibold bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded-full border border-emerald-400/40 hover:bg-emerald-500/30 transition">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+          </span>
+          <span id="header-alerts-text">0 Active Alerts</span>
+        </a>
         <span id="sync-badge" class="text-xs text-slate-300 bg-dvc-dark/60 px-3 py-1.5 rounded-full border border-slate-700/60 hidden sm:inline-block">
           <i class="fa-regular fa-clock mr-1 text-dvc-gold"></i> Last synced: <span id="last-updated-text" class="font-medium">Loading...</span>
         </span>
@@ -299,6 +306,98 @@
 
     </div>
 
+    <!-- Live Availability Alerts Section -->
+    <div id="alerts-section" class="bg-white rounded-2xl shadow-sm border border-slate-200 scroll-mt-20">
+      <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-bell text-dvc-blue"></i>
+              <span>Live Availability Alerts</span>
+            </h3>
+            <span id="alerts-count-badge" class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              <span>0 Running</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Active background watchers checking DVC room openings &amp; firing native macOS notifications</p>
+        </div>
+
+        <button onclick="toggleNewAlertForm()" class="inline-flex items-center gap-1.5 bg-dvc-navy hover:bg-dvc-dark text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition active:scale-95">
+          <i class="fa-solid fa-plus"></i>
+          <span>New Availability Alert</span>
+        </button>
+      </div>
+
+      <!-- Collapsible New Alert Form -->
+      <div id="new-alert-form" class="hidden bg-slate-50 border-b border-slate-200 px-6 py-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+          <!-- Multi-Select Resort Dropdown -->
+          <div class="relative" id="resort-multiselect-wrapper">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Resorts</label>
+            <button type="button" onclick="toggleResortDropdown(event)" id="resort-dropdown-btn"
+              class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-dvc-blue focus:outline-none flex items-center justify-between text-left h-[38px]">
+              <span id="resort-dropdown-label" class="truncate">VWL (Boulder Ridge)</span>
+              <i class="fa-solid fa-chevron-down text-xs text-slate-400 ml-2 shrink-0"></i>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="resort-dropdown-menu" class="hidden absolute left-0 mt-1.5 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-600">Select Resort(s)</span>
+                <div class="space-x-2">
+                  <button type="button" onclick="selectPresetResorts('home')" class="text-dvc-blue hover:underline font-medium">Home Only</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectPresetResorts('wdw')" class="text-dvc-blue hover:underline font-medium">All WDW</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectPresetResorts('all')" class="text-dvc-blue hover:underline font-medium">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectPresetResorts('none')" class="text-slate-500 hover:underline font-medium">Clear</button>
+                </div>
+              </div>
+              <div id="resort-checkbox-list" class="max-h-64 overflow-y-auto divide-y divide-slate-100 p-1.5">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Room Category</label>
+            <select id="alert-room" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-dvc-blue focus:outline-none h-[38px]">
+              <option value="studio">Deluxe Studio</option>
+              <option value="1-bed">1-Bedroom Villa</option>
+              <option value="2-bed">2-Bedroom Villa</option>
+              <option value="3-bed">3-Bedroom Grand Villa</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Check-In Date</label>
+            <input type="date" id="alert-checkin"
+              class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-dvc-blue focus:outline-none h-[38px]" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Check-Out Date</label>
+            <input type="date" id="alert-checkout"
+              class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-dvc-blue focus:outline-none h-[38px]" />
+          </div>
+          <div class="flex gap-2">
+            <div class="w-24">
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Interval (m)</label>
+              <input type="number" id="alert-interval" value="15" min="3" max="120"
+                class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-dvc-blue focus:outline-none h-[38px]" />
+            </div>
+            <button onclick="startNewWatcher()" class="flex-1 bg-dvc-blue hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition active:scale-95 h-[38px] mt-auto">
+              Start
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Watchers List -->
+      <div id="watchers-list" class="p-6 space-y-4">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+
   </main>
 
   <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400">
@@ -395,8 +494,343 @@
         calculateTripWindows();
       }
 
-      // Render trips
+      // Default dates for New Alert form (e.g. 6 months out)
+      const alertCi = document.getElementById('alert-checkin');
+      const alertCo = document.getElementById('alert-checkout');
+      if (alertCi && !alertCi.value) {
+        const d1 = new Date();
+        d1.setMonth(d1.getMonth() + 6);
+        const d2 = new Date(d1);
+        d2.setDate(d2.getDate() + 4);
+        alertCi.value = d1.toISOString().split('T')[0];
+        alertCo.value = d2.toISOString().split('T')[0];
+      }
+
+      // Render trips & watchers
       renderTrips();
+      renderWatchers(data.watchers || []);
+    }
+
+    const DVC_RESORTS = [
+      { code: 'VWL', name: "Boulder Ridge at Wilderness Lodge", short: 'Boulder Ridge', wdw: true, home: true },
+      { code: 'CCV', name: "Copper Creek at Wilderness Lodge", short: 'Copper Creek', wdw: true },
+      { code: 'BLT', name: "Bay Lake Tower at Contemporary", short: 'Bay Lake Tower', wdw: true },
+      { code: 'PVB', name: "Polynesian Villas & Bungalows", short: 'Polynesian', wdw: true },
+      { code: 'VGF', name: "Grand Floridian Resort & Spa", short: 'Grand Floridian', wdw: true },
+      { code: 'RIV', name: "Disney's Riviera Resort", short: 'Riviera', wdw: true },
+      { code: 'BCV', name: "Disney's Beach Club Villas", short: 'Beach Club', wdw: true },
+      { code: 'BWV', name: "Disney's BoardWalk Villas", short: 'BoardWalk', wdw: true },
+      { code: 'AKV', name: "Disney's Animal Kingdom Villas", short: 'Animal Kingdom', wdw: true },
+      { code: 'SSR', name: "Disney's Saratoga Springs Resort", short: 'Saratoga Springs', wdw: true },
+      { code: 'OKW', name: "Disney's Old Key West Resort", short: 'Old Key West', wdw: true },
+      { code: 'CFW', name: "The Cabins at Fort Wilderness", short: 'Fort Wilderness', wdw: true },
+      { code: 'VGC', name: "Grand Californian Hotel & Spa", short: 'Grand Californian', wdw: false },
+      { code: 'VDH', name: "The Villas at Disneyland Hotel", short: 'Disneyland Hotel', wdw: false },
+      { code: 'AUL', name: "Aulani, DVC Villas (Hawaii)", short: 'Aulani', wdw: false },
+      { code: 'HHI', name: "Disney's Hilton Head Island Resort", short: 'Hilton Head', wdw: false },
+      { code: 'VB',  name: "Disney's Vero Beach Resort", short: 'Vero Beach', wdw: false }
+    ];
+
+    let selectedResorts = new Set(['VWL']);
+
+    function initResortMultiSelect() {
+      const listEl = document.getElementById('resort-checkbox-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      DVC_RESORTS.forEach(r => {
+        const checked = selectedResorts.has(r.code);
+        const homeBadge = r.home
+          ? `<span class="ml-auto text-[10px] font-bold bg-dvc-gold/20 text-amber-800 border border-dvc-gold/40 px-1.5 py-0.5 rounded">HOME</span>`
+          : '';
+        const label = document.createElement('label');
+        label.className = "flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-50 cursor-pointer select-none text-xs";
+        label.innerHTML = `
+          <input type="checkbox" value="${r.code}" ${checked ? 'checked' : ''}
+            onchange="toggleResortSelection('${r.code}', this.checked)"
+            class="rounded border-slate-300 text-dvc-blue focus:ring-dvc-blue h-4 w-4" />
+          <span class="font-mono font-bold text-dvc-navy w-9">${r.code}</span>
+          <span class="text-slate-700 font-medium truncate">${r.name}</span>
+          ${homeBadge}
+        `;
+        listEl.appendChild(label);
+      });
+
+      updateResortDropdownLabel();
+    }
+
+    function toggleResortDropdown(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('resort-dropdown-menu');
+      menu.classList.toggle('hidden');
+    }
+
+    function toggleResortSelection(code, isChecked) {
+      if (isChecked) {
+        selectedResorts.add(code);
+      } else {
+        selectedResorts.delete(code);
+      }
+      updateResortDropdownLabel();
+    }
+
+    function selectPresetResorts(preset) {
+      selectedResorts.clear();
+      if (preset === 'home') {
+        selectedResorts.add('VWL');
+      } else if (preset === 'wdw') {
+        DVC_RESORTS.filter(r => r.wdw).forEach(r => selectedResorts.add(r.code));
+      } else if (preset === 'all') {
+        DVC_RESORTS.forEach(r => selectedResorts.add(r.code));
+      }
+      initResortMultiSelect();
+    }
+
+    function updateResortDropdownLabel() {
+      const labelEl = document.getElementById('resort-dropdown-label');
+      if (!labelEl) return;
+      const codes = Array.from(selectedResorts);
+      if (codes.length === 0) {
+        labelEl.innerText = 'Select resort(s)...';
+        labelEl.classList.add('text-slate-400');
+      } else if (codes.length === 1) {
+        const r = DVC_RESORTS.find(x => x.code === codes[0]);
+        labelEl.innerText = r ? `${r.code} (${r.short})` : codes[0];
+        labelEl.classList.remove('text-slate-400');
+      } else if (codes.length <= 3) {
+        labelEl.innerText = codes.join(', ');
+        labelEl.classList.remove('text-slate-400');
+      } else {
+        labelEl.innerText = `${codes.length} Resorts (${codes.slice(0, 2).join(', ')}...)`;
+        labelEl.classList.remove('text-slate-400');
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrapper = document.getElementById('resort-multiselect-wrapper');
+      const menu = document.getElementById('resort-dropdown-menu');
+      if (wrapper && menu && !wrapper.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    function toggleNewAlertForm() {
+      const form = document.getElementById('new-alert-form');
+      form.classList.toggle('hidden');
+      initResortMultiSelect();
+    }
+
+    async function pollWatchers() {
+      try {
+        const res = await fetch('/api/watchers');
+        const data = await res.json();
+        if (data && Array.isArray(data.watchers)) {
+          if (dvcData) dvcData.watchers = data.watchers;
+          renderWatchers(data.watchers);
+        }
+      } catch (e) {
+        // Ignore transient poll errors
+      }
+    }
+
+    function renderWatchers(watchers) {
+      const container = document.getElementById('watchers-list');
+      const countBadge = document.getElementById('alerts-count-badge');
+      const headerBadge = document.getElementById('header-alerts-badge');
+      const headerText = document.getElementById('header-alerts-text');
+
+      const count = (watchers || []).length;
+
+      if (count > 0) {
+        countBadge.className = "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200";
+        countBadge.innerHTML = `
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+          </span>
+          <span>${count} Running</span>
+        `;
+        headerBadge.classList.remove('hidden');
+        headerBadge.classList.add('inline-flex');
+        headerText.innerText = `${count} Active Alert${count === 1 ? '' : 's'}`;
+      } else {
+        countBadge.className = "inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600";
+        countBadge.innerHTML = `<span>0 Running</span>`;
+        headerBadge.classList.add('hidden');
+        headerBadge.classList.remove('inline-flex');
+      }
+
+      if (count === 0) {
+        container.innerHTML = `
+          <div class="py-8 text-center">
+            <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl mb-3">
+              <i class="fa-regular fa-bell-slash"></i>
+            </div>
+            <p class="text-sm font-semibold text-slate-700">No Active Availability Alerts Running</p>
+            <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+              Click <strong>+ New Availability Alert</strong> above or start a watcher in your terminal with:
+            </p>
+            <code class="inline-block mt-2.5 bg-slate-900 text-emerald-400 text-xs font-mono px-3.5 py-1.5 rounded-lg">
+              python dvc.py watch --resort VWL --room studio --start 2027-05-10 --end 2027-05-14
+            </code>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      watchers.forEach(w => {
+        const isAvail = w.status === 'available' || (w.open_rooms_count || 0) > 0;
+        const isChecking = w.status === 'checking';
+        const isError = w.status === 'error';
+
+        let statusBadge = '';
+        if (isAvail) {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-green-100 text-green-800 border border-green-300 animate-pulse">
+              <i class="fa-solid fa-circle-check text-green-600"></i>
+              <span>ROOM AVAILABLE!</span>
+            </span>
+          `;
+        } else if (isChecking) {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              <i class="fa-solid fa-arrows-rotate fa-spin text-blue-600"></i>
+              <span>Checking DVC...</span>
+            </span>
+          `;
+        } else if (isError) {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+              <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+              <span>Check Error</span>
+            </span>
+          `;
+        } else {
+          statusBadge = `
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span>Monitoring (Waitlist Only)</span>
+            </span>
+          `;
+        }
+
+        const resortCodes = (w.resorts || []).map(c =>
+          `<span class="bg-dvc-navy text-dvc-gold font-mono font-bold text-xs px-2 py-0.5 rounded">${c}</span>`
+        ).join(' ');
+
+        const resortNames = (w.resort_names || []).join(', ');
+
+        let resultsHtml = '';
+        if (w.latest_results && w.latest_results.length > 0) {
+          const items = w.latest_results.map(r => {
+            const pillClass = r.is_available
+              ? 'bg-green-100 text-green-800 border-green-300 font-bold'
+              : 'bg-slate-100 text-slate-600 border-slate-200';
+            const ptsText = r.points_total ? ` (${r.points_total} pts)` : '';
+            return `
+              <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border ${pillClass}">
+                <span>${r.resort_code}: ${r.room_type}</span>
+                <span>&bull;</span>
+                <span>${r.status}${ptsText}</span>
+              </span>
+            `;
+          }).join('');
+          resultsHtml = `<div class="mt-3 pt-3 border-t border-slate-200/70 flex flex-wrap gap-2">${items}</div>`;
+        }
+
+        const bookBtn = isAvail ? `
+          <a href="https://disneyvacationclub.disney.go.com/booking/" target="_blank"
+             class="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-up-right-from-square"></i>
+            <span>Book on DVC</span>
+          </a>
+        ` : '';
+
+        const card = document.createElement('div');
+        card.className = `p-5 rounded-xl border ${isAvail ? 'border-green-400 bg-green-50/30 shadow-md' : 'border-slate-200 bg-slate-50/50'} transition`;
+        card.innerHTML = `
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="space-y-1.5">
+              <div class="flex flex-wrap items-center gap-2">
+                ${resortCodes}
+                <span class="font-bold text-slate-900 text-sm">${resortNames}</span>
+                <span class="text-xs font-semibold bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full">${w.room_type}</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-medium">
+                <span><i class="fa-regular fa-calendar text-dvc-blue mr-1"></i> ${w.check_in} &rarr; ${w.check_out}</span>
+                <span><i class="fa-solid fa-repeat text-slate-400 mr-1"></i> Every ~${w.interval_minutes} min</span>
+                <span><i class="fa-solid fa-hashtag text-slate-400 mr-0.5"></i> Check #${w.check_count || 1}</span>
+                <span class="text-slate-400 font-mono">PID ${w.pid}</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                <span><strong>Last Checked:</strong> ${w.last_checked || 'In progress...'}</span>
+                ${w.next_check ? `<span><strong>Next Check:</strong> ${w.next_check}</span>` : ''}
+                ${isError && w.status_text ? `<span class="text-red-600 font-medium">${w.status_text}</span>` : ''}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 self-start md:self-center">
+              ${statusBadge}
+              ${bookBtn}
+              <button onclick="stopWatcher('${w.id}')" class="inline-flex items-center gap-1.5 bg-white hover:bg-red-50 text-red-600 border border-slate-200 hover:border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                <i class="fa-solid fa-stop"></i>
+                <span>Stop</span>
+              </button>
+            </div>
+          </div>
+          ${resultsHtml}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function startNewWatcher() {
+      const codes = Array.from(selectedResorts);
+      if (codes.length === 0) {
+        showToast('Please select at least one DVC resort.', 'error');
+        return;
+      }
+      const resorts = codes.join(',');
+      const room_type = document.getElementById('alert-room').value;
+      const check_in = document.getElementById('alert-checkin').value;
+      const check_out = document.getElementById('alert-checkout').value;
+      const interval = parseInt(document.getElementById('alert-interval').value || '15', 10);
+
+      if (!check_in || !check_out) {
+        showToast('Please select both check-in and check-out dates.', 'error');
+        return;
+      }
+
+      showToast('Starting background availability watcher...', 'spin');
+      try {
+        const res = await fetch('/api/watchers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resorts, room_type, check_in, check_out, interval })
+        });
+        const result = await res.json();
+        if (!res.ok) {
+          showToast(result.error || 'Could not start availability alert.', 'error');
+          return;
+        }
+        document.getElementById('resort-dropdown-menu').classList.add('hidden');
+        document.getElementById('new-alert-form').classList.add('hidden');
+        showToast('✓ Availability alert started! Checking DVC now...', 'check');
+        setTimeout(pollWatchers, 800);
+      } catch (e) {
+        showToast('Failed to start availability watcher.', 'error');
+      }
+    }
+
+    async function stopWatcher(watcherId) {
+      try {
+        await fetch(`/api/watchers/${watcherId}`, { method: 'DELETE' });
+        showToast('Availability alert stopped.', 'check');
+        pollWatchers();
+      } catch (e) {
+        showToast('Error stopping availability alert.', 'error');
+      }
     }
 
     function switchTripTab(tab) {
@@ -558,7 +992,11 @@
       }, 4000);
     }
 
-    window.addEventListener('DOMContentLoaded', loadData);
+    window.addEventListener('DOMContentLoaded', () => {
+      initResortMultiSelect();
+      loadData();
+      setInterval(pollWatchers, 5000);
+    });
   </script>
 </body>
 </html>

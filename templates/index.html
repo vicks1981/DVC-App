@@ -82,6 +82,25 @@
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
 
+    <!-- Session Expired Alert Banner -->
+    <div id="session-expired-banner" class="hidden bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg shrink-0 mt-0.5">
+          <i class="fa-solid fa-key"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-amber-950">Disney Session Expired — Re-Authentication Required</h3>
+          <p class="text-xs text-amber-800 mt-0.5">
+            Your saved Disney login session has expired, so live points and reservations could not be loaded. Click <strong>Sign In to Disney</strong> to open the Disney login window and automatically sync your points and trips.
+          </p>
+        </div>
+      </div>
+      <button id="login-disney-btn" onclick="loginDisney()" class="inline-flex items-center justify-center gap-2 bg-dvc-navy hover:bg-dvc-dark text-dvc-gold font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 shrink-0">
+        <i id="login-disney-icon" class="fa-solid fa-right-to-bracket"></i>
+        <span>Sign In to Disney</span>
+      </button>
+    </div>
+
     <!-- Member Overview Header Card -->
     <div class="bg-gradient-to-r from-dvc-navy via-[#102a4c] to-[#0c2340] rounded-2xl p-6 text-white shadow-xl border border-slate-700/50 relative overflow-hidden">
       <div class="absolute -right-10 -bottom-10 opacity-5 text-white text-9xl pointer-events-none">
@@ -441,9 +460,34 @@
       document.getElementById('stat-banked').innerText = currentYearObj.banked_out || 22;
       document.getElementById('stat-next-balance').innerText = nextYearObj.points_balance || 172;
 
+      // Session Expired Banner visibility
+      const expiredBanner = document.getElementById('session-expired-banner');
+      const isExpired = Boolean(data.session_expired) || !(data.points_by_year && data.points_by_year.length > 0);
+      if (expiredBanner) {
+        if (isExpired) {
+          expiredBanner.classList.remove('hidden');
+        } else {
+          expiredBanner.classList.add('hidden');
+        }
+      }
+
       // Points Table
       const tbody = document.getElementById('points-table-body');
       tbody.innerHTML = '';
+
+      if (!data.points_by_year || data.points_by_year.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-10 text-center text-slate-500">
+              <div class="max-w-md mx-auto space-y-2">
+                <i class="fa-solid fa-lock text-amber-500 text-xl"></i>
+                <p class="text-sm font-semibold text-slate-800">Points Allocation Not Loaded (Disney Session Expired)</p>
+                <p class="text-xs text-slate-500">Click <strong>Sign In to Disney</strong> above (or run <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-700">python dvc.py login</code>) to authenticate and load your points and reservations.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
 
       (data.points_by_year || []).forEach(row => {
         const tr = document.createElement('tr');
@@ -881,7 +925,7 @@
             <h4 class="font-bold text-slate-900 text-sm">${t.resort}</h4>
             <span class="text-xs font-bold text-dvc-blue bg-blue-100 px-2 py-0.5 rounded font-mono">${t.points} pts</span>
           </div>
-          <p class="text-xs text-slate-600 mt-1 font-medium"><i class="fa-regular fa-calendar mr-1"></i> ${t.check_in} – ${t.check_out}</p>
+          <p class="text-xs text-slate-600 mt-1 font-medium"><i class="fa-regular fa-calendar mr-1"></i> ${t.check_in} – ${t.check_out}${t.nights ? ` <span class="text-slate-400">(${t.nights} nights)</span>` : ''}</p>
           <div class="flex justify-between text-xs text-slate-400 mt-2 pt-2 border-t border-slate-200/60">
             <span>Room: ${t.room_type}</span>
             <span>Conf: #${t.confirmation_number}</span>
@@ -958,6 +1002,13 @@
       try {
         const res = await fetch('/api/refresh', { method: 'POST' });
         const freshData = await res.json();
+        if (!res.ok) {
+          if (freshData.session_expired) {
+            document.getElementById('session-expired-banner')?.classList.remove('hidden');
+          }
+          showToast(freshData.error || 'Disney session expired. Please Sign In to Disney.', 'error');
+          return;
+        }
         dvcData = freshData;
         renderDashboard(freshData);
         showToast('✓ Successfully refreshed live DVC points & trips!', 'check');
@@ -968,6 +1019,42 @@
         btn.disabled = false;
         btn.classList.remove('opacity-75', 'cursor-not-allowed');
         icon.classList.remove('fa-spin');
+      }
+    }
+
+    async function loginDisney() {
+      const btn = document.getElementById('login-disney-btn');
+      const icon = document.getElementById('login-disney-icon');
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+      }
+      if (icon) {
+        icon.className = "fa-solid fa-arrows-rotate fa-spin";
+      }
+      showToast('Opening Disney Sign-In window... Please log in to your DVC account in the browser window that opens.', 'spin');
+
+      try {
+        const res = await fetch('/api/login', { method: 'POST' });
+        const freshData = await res.json();
+        if (!res.ok) {
+          showToast(freshData.error || 'Login was cancelled or timed out.', 'error');
+          return;
+        }
+        dvcData = freshData;
+        renderDashboard(freshData);
+        showToast('✓ Signed in and synced your live DVC points & reservations!', 'check');
+      } catch (err) {
+        showToast('Failed to complete Disney sign-in.', 'error');
+        console.error(err);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        }
+        if (icon) {
+          icon.className = "fa-solid fa-right-to-bracket";
+        }
       }
     }
 

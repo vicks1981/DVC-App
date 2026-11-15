@@ -101,12 +101,20 @@ def main():
         if disney_cookies:
             console.print(f"[bold green]✓ Successfully captured {len(disney_cookies)} Disney session cookies![/bold green]")
             console.print(f"[green]Saved session to: [bold]{AUTH_STATE_FILE.name}[/bold][/green]")
-            console.print("\n[cyan]You can now run [bold]python check_points.py[/bold] in headless mode![/cyan]\n")
         else:
             console.print("[yellow]Warning: Saved session file, but few or no Disney cookies were detected.[/yellow]")
             console.print("If check_points.py fails, please re-run login.py and ensure you are completely signed in.")
 
         browser.close()
+
+    if disney_cookies:
+        console.print("\n[yellow]Syncing live points & reservations cache for the web dashboard...[/yellow]")
+        try:
+            import dvc_service
+            dvc_service.fetch_live_data()
+            console.print("[bold green]✓ Web dashboard cache (data_cache.json) updated with your points & trips![/bold green]\n")
+        except Exception as e:
+            console.print(f"[dim yellow]Note: Could not auto-sync web cache ({e}). Click 'Refresh DVC' on the web dashboard.[/dim yellow]\n")
 
 if __name__ == "__main__":
     main()

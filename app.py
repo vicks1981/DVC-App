@@ -29,7 +29,7 @@ def get_data():
         try:
             data = dvc_service.fetch_live_data()
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": str(e), "session_expired": True}), 500
     data["watchers"] = dvc_service.get_active_watchers()
     return jsonify(data)
 
@@ -39,8 +39,19 @@ def refresh_data():
         data = dvc_service.fetch_live_data()
         data["watchers"] = dvc_service.get_active_watchers()
         return jsonify(data)
+    except PermissionError as e:
+        return jsonify({"error": str(e), "session_expired": True}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/login", methods=["POST"])
+def login_disney():
+    try:
+        data = dvc_service.interactive_login_and_sync()
+        data["watchers"] = dvc_service.get_active_watchers()
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route("/api/watchers", methods=["GET"])
 def list_watchers():

@@ -51,20 +51,47 @@ def parse_args():
     parser.add_argument("--debug", action="store_true", help="Save debug screenshot and page HTML.")
     return parser.parse_args()
 
+ROOM_CODE_MAP = {
+    "XA": "Deluxe Studio",
+    "ST": "Deluxe Studio",
+    "DS": "Deluxe Studio",
+    "1B": "1-Bedroom Villa",
+    "2B": "2-Bedroom Villa",
+    "3B": "3-Bedroom Grand Villa",
+    "GV": "3-Bedroom Grand Villa",
+    "TOW": "Tower Studio",
+    "CAB": "Cabin",
+}
+
 def parse_reservation_item(res):
-    """Normalize reservation dictionary from API or DOM."""
+    """Normalize reservation dictionary from API or DOM (including nested stayDetails)."""
     if not isinstance(res, dict):
         return None
 
-    resort_code = res.get("resortCode", "")
-    resort_name = res.get("resortName") or RESORT_NAMES.get(resort_code, resort_code or "Unknown Resort")
+    stay = res.get("stayDetails") if isinstance(res.get("stayDetails"), dict) else {}
+
+    resort_code = stay.get("resortCode") or res.get("resortCode") or ""
+    resort_name = (
+        stay.get("destinationName")
+        or stay.get("resortName")
+        or res.get("destinationName")
+        or res.get("resortName")
+        or RESORT_NAMES.get(resort_code, resort_code or "Unknown Resort")
+    )
     
-    check_in = res.get("checkInDate") or res.get("arrivalDate") or res.get("startDate", "N/A")
-    check_out = res.get("checkOutDate") or res.get("departureDate") or res.get("endDate", "N/A")
-    conf_num = res.get("confirmationNumber") or res.get("reservationId") or res.get("confNumber", "N/A")
-    room_type = res.get("roomType") or res.get("roomDescription") or res.get("villaType", "Standard")
-    points = res.get("points") or res.get("vacationPoints") or res.get("pointsUsed", "N/A")
-    status = res.get("status", "Confirmed")
+    check_in = stay.get("checkInDate") or res.get("checkInDate") or res.get("arrivalDate") or res.get("startDate", "N/A")
+    check_out = stay.get("checkOutDate") or res.get("checkOutDate") or res.get("departureDate") or res.get("endDate", "N/A")
+    conf_num = (
+        res.get("reservationNumber")
+        or res.get("confirmationNumber")
+        or res.get("travelPlanSegmentId")
+        or res.get("reservationId")
+        or res.get("confNumber", "N/A")
+    )
+    raw_room = stay.get("roomType") or res.get("roomType") or res.get("roomDescription") or res.get("villaType", "Standard")
+    room_type = ROOM_CODE_MAP.get(str(raw_room).strip().upper(), raw_room)
+    points = stay.get("totalPoints") or stay.get("points") or res.get("totalPoints") or res.get("points") or res.get("vacationPoints") or res.get("pointsUsed", "N/A")
+    status = res.get("status") or "Confirmed"
 
     return {
         "resort": resort_name,
